@@ -18,7 +18,6 @@ SOURCES +=  \
 #        $$PWD/../example/ZXingQtReader.cpp \
 
 HEADERS += \
-    $$PWD/../example/ZXingQtReader.h \
     $$PWD/src/BarcodeFormat.h \
     $$PWD/src/BitArray.h \
     $$PWD/src/BitHacks.h \
