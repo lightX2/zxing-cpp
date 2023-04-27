@@ -19,8 +19,6 @@
 #include "Quadrilateral.h"
 #include "RegressionLine.h"
 
-#include "BitMatrixIO.h"
-
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -29,13 +27,26 @@
 #include <utility>
 #include <vector>
 
-#ifndef PRINT_DEBUG
+#ifdef PRINT_DEBUG
+#include "BitMatrixIO.h"
+#else
 #define printf(...){}
 #endif
 
 namespace ZXing::QRCode {
 
 constexpr auto PATTERN = FixedPattern<5, 7>{1, 1, 3, 1, 1};
+constexpr bool E2E = true;
+
+PatternView FindPattern(const PatternView& view)
+{
+	return FindLeftGuard<PATTERN.size()>(view, PATTERN.size(), [](const PatternView& view, int spaceInPixel) {
+		// perform a fast plausability test for 1:1:3:1:1 pattern
+		if (view[2] < 2 * std::max(view[0], view[4]) || view[2] < std::max(view[1], view[3]))
+			return 0.f;
+		return IsPattern<E2E>(view, PATTERN, spaceInPixel, 0.5);
+	});
+}
 
 std::vector<ConcentricPattern> FindFinderPatterns(const BitMatrix& image, bool tryHarder)
 {
@@ -59,15 +70,15 @@ std::vector<ConcentricPattern> FindFinderPatterns(const BitMatrix& image, bool t
 		GetPatternRow(image, y, row, false);
 		PatternView next = row;
 
-		while (next = FindLeftGuard(next, 0, PATTERN, 0.5), next.isValid()) {
+		while (next = FindPattern(next), next.isValid()) {
 			PointF p(next.pixelsInFront() + next[0] + next[1] + next[2] / 2.0, y + 0.5);
 
 			// make sure p is not 'inside' an already found pattern area
 			if (FindIf(res, [p](const auto& old) { return distance(p, old) < old.size / 2; }) == res.end()) {
 				log(p);
 				N++;
-				auto pattern = LocateConcentricPattern(image, PATTERN, p,
-													   Reduce(next) * 3); // 3 for very skewed samples
+				auto pattern = LocateConcentricPattern<E2E>(image, PATTERN, p,
+															Reduce(next) * 3); // 3 for very skewed samples
 				if (pattern) {
 					log(*pattern, 3);
 					log(*pattern + PointF(.2, 0), 3);
